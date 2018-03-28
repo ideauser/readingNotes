@@ -64,7 +64,8 @@ conn.log  dns.log  files.log  http.log  packet_filter.log  ssl.log  test.pcapng 
 
 ```
 ### bro分析pcap的后产生的日志文件
-*默认情况下，bro记录一切事件*
+* 默认情况下，bro记录一切事件
+* 可以使用额外的字段扩展标准的Bro日志文件，这取决于在Bro实例中所使用的脚本
 * **conn.log**:记录从pcap文件提取出来的网络连接
 
 ```
