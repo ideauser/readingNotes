@@ -67,6 +67,8 @@ conn.log  dns.log  files.log  http.log  packet_filter.log  ssl.log  test.pcapng 
 * 默认情况下，bro记录一切事件
 * 可以使用额外的字段扩展标准的Bro日志文件，这取决于在Bro实例中所使用的脚本
 * **conn.log**:记录从pcap文件提取出来的网络连接
+	* orig_h: 表示的是originator host,即包的发起者，相当于source源
+	* resp_?: 表示的是resposedes,即响应者,destination,目标
 
 ```
 @seconi:~/pcap$ cat conn.log |more
@@ -154,3 +156,71 @@ m]	string	string	set[string]	vector[string]	vector[string]	vector[string]	vector
 ```
 
 * **verid.log** :记录任何协议异常的事件
+
+#### 日志字段截断
+* **bro-cut** : 日志字段过多，有时会干扰分析，可以使用bro-cut过滤自己关心的部分
+
+```
+bro-cut -h
+
+bro-cut [options] [<columns>]
+
+Extracts the given columns from an ASCII Bro log on standard input.
+If no columns are given, all are selected. By default, bro-cut does
+not include format header blocks into the output.
+
+Example: cat conn.log | bro-cut -d ts id.orig_h id.orig_p
+
+    -c       Include the first format header block into the output.
+    -C       Include all format header blocks into the output.
+    -d       Convert time values into human-readable format.
+    -D <fmt> Like -d, but specify format for time (see strftime(3) for syntax).
+    -F <ofs> Sets a different output field separator.
+    -n       Print all fields *except* those specified.
+    -u       Like -d, but print timestamps in UTC instead of local time.
+    -U <fmt> Like -D, but print timestamps in UTC instead of local time.
+
+For time conversion option -d or -u, the format string can be specified by
+setting an environment variable BRO_CUT_TIMEFMT.
+
+
+```
+
+* bro-cut的具体例子
+
+```
+@seconi:~/pcap$ cat http.log |bro-cut ts uid method host
+1522203274.361958	Cg8g2i3QZqL4EpvEuh	GET	hm.baidu.com
+1522203274.346190	CrSPwx3Ic1x3VMFEZb	GET	count.2881.com
+1522203274.539820	CSJwvB2Z1lAGdgXuD3	GET	count.knowsky.com
+1522203274.536801	CoOd8W2t2HscZk9wGd	GET	count.knowsky.com
+1522203274.621029	Cg8g2i3QZqL4EpvEuh	GET	hm.baidu.com
+1522203275.233433	Cg8g2i3QZqL4EpvEuh	GET	hm.baidu.com
+1522203275.454159	COpd2t4Uqlfl0l0222	GET	crl.microsoft.com
+1522203283.445798	C07jir3L6pOhH3VX1e	GET	www.baidu.com
+1522203283.707515	Cg8g2i3QZqL4EpvEuh	GET	hm.baidu.com
+1522203296.568391	CQDdtmRaFnbg7jqN3	GET	www.sina.com
+
+加上-u 选项，使用UTC时间,加-d显示本地时间 
+seconi:~/pcap$ cat http.log |bro-cut -u ts uid method host
+2018-03-28T02:14:34+0000	Cg8g2i3QZqL4EpvEuh	GET	hm.baidu.com
+2018-03-28T02:14:34+0000	CrSPwx3Ic1x3VMFEZb	GET	count.2881.com
+2018-03-28T02:14:34+0000	CSJwvB2Z1lAGdgXuD3	GET	count.knowsky.com
+2018-03-28T02:14:34+0000	CIAY6V1rmunu56Wemj	GET	count.knowsky.com
+2018-03-28T02:14:34+0000	C0tlaC2c6CL8vZePI3	GET	count.knowsky.com
+
+
+@seconi:~/pcap$ cat http.log |bro-cut -dc ts uid method host
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	http
+#open	2018-03-28-10-20-36
+#fields	ts	uid	method	host
+#types	string	string	string	string
+2018-03-28T10:14:34+0800	Cg8g2i3QZqL4EpvEuh	GET	hm.baidu.com
+2018-03-28T10:14:34+0800	CrSPwx3Ic1x3VMFEZb	GET	count.2881.com
+2018-03-28T10:14:34+0800	CSJwvB2Z1lAGdgXuD3	GET	count.knowsky.com
+
+```
