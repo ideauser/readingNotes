@@ -6,6 +6,8 @@
 * **count**：数值？
 * **set[类型]** ？类似数据还是集合
 * table[类型]？
+* time 日期时间
+* interval 间隔
 ### 变量修饰
 * global 全局？
 
