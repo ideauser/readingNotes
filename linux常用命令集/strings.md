@@ -31,6 +31,5 @@ Usage: strings [option(s)] [file(s)]
   -h --help                 Display this information
   -v -V --version           Print the program's version number
 ```
-<div align=center>
+
 ![](./images/strings_1.jpg)
-</div>
