@@ -66,3 +66,92 @@ connection_state_remove
 将来可能会有文件分析器根据启发式自动附加到文件，类似于连接的动态协议检测（DPD）框架，但许多文件分析器总是需要明确的附件决定。
 
 以下是如何使用MD5文件分析器计算纯文本文件的MD5的简单示例：
+
+* 注意meta?$mime_type 是meta in mime_type的意思吗？
+
+```
+file_analysis_02.bro
+
+event file_sniff(f: fa_file, meta: fa_metadata)
+    {
+	if ( ! meta?$mime_type ) return;
+    print "new file", f$id;
+    if ( meta$mime_type == "text/plain" )
+        Files::add_analyzer(f, Files::ANALYZER_MD5);
+    }
+
+event file_hash(f: fa_file, kind: string, hash: string)
+    {
+    print "file_hash", f$id, kind, hash;
+    }
+```
+
+
+### file的一些属性
+**完全属性可以参考[这里](https://www.bro.org/sphinx/scripts/base/init-bare.bro.html?highlight=fa_file#type-fa_file)
+* bof_buffer string &optional #一个文件的开始内容最多为bof_buffer_size个字节。 这也是用于文件/MIME类型检测的缓冲区。是否可以把bof_buffer_size调大点以容纳整个文件内容，这样便可以对内容进行检索呢 
+* bof_buffer_size count &default = [default_file_bof_buffer_size](https://www.bro.org/sphinx/scripts/base/init-bare.bro.html?highlight=fa_file#id-default_file_bof_buffer_size) &optional 保存在bof_buffer字段中以供稍后检查的文件开始处的字节数。
+```
+            if ("www.w3.org" in f$bof_buffer)
+    {
+          print "find www.w3.org";
+          print f$bof_buffer_size,"file_content:", f$bof_buffer;
+    }
+```
+
+```
+event file_sniff(f: fa_file, meta: fa_metadata)
+    {
+        if ( ! meta?$mime_type ) return;
+#    print "new file", f$id;
+
+ if ( meta$mime_type == "text/plain"  && "slide.ent.sina.com.cn" in f$bof_buffer)
+ {
+       print  "file content",f$bof_buffer_size,f$bof_buffer;
+    }
+
+}
+
+```
+
+```
+event file_sniff(f: fa_file, meta: fa_metadata)
+    {
+        if ( ! meta?$mime_type ) return;
+#    print "new file", f$id;
+
+
+ if ( meta$mime_type == "text/plain"  && "slide.ent.sina.com.cn" in f$bof_buffer)
+ {
+#       print  "file content",f$bof_buffer_size,f$bof_buffer;
+        print f$http;
+    }
+
+}
+
+```
+```
+seconi:~/pcap$ bro -C -r  test.pcapng htmlana.bro 
+[ts=1522203300.395897, uid=CPsMjd1gkVGyEwgAt4, id=[orig_h=192.168.10.250, orig_p=30911/tcp, resp_h=58.63.238.228, resp_p=80/tcp], trans_depth=1, method=GET, host=cre.mix.sina.com.cn, uri=/api/v3/get?cre=sinapc&mod=picg&statics=1&merge=3&type=1&length=20&cateid=t_s&fields=url,stitle,title,thumb&callback=homePicGuessLoaded__&rnd=1522203298880, referrer=http://www.sina.com.cn/, version=1.1, user_agent=Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36, request_body_len=0, response_body_len=0, status_code=200, status_msg=OK, info_code=<uninitialized>, info_msg=<uninitialized>, tags={
+
+}, username=<uninitialized>, password=<uninitialized>, capture_password=F, proxied=<uninitialized>, range_request=F, orig_fuids=<uninitialized>, orig_filenames=<uninitialized>, orig_mime_types=<uninitialized>, resp_fuids=[Fz37vD1LW3luQX87ej], resp_filenames=<uninitialized>, resp_mime_types=[text/plain], current_entity=[filename=<uninitialized>], orig_mime_depth=1, resp_mime_depth=1]
+```
+
+```
+event file_sniff(f: fa_file, meta: fa_metadata)
+    {
+        if ( ! meta?$mime_type ) return;
+#    print "new file", f$id;
+
+
+ if ( meta$mime_type == "text/plain"  && /slide.ent.sina.com.cn/ in f$bof_buffer)
+ {
+#       print  "file content",f$bof_buffer_size,f$bof_buffer;
+        print f$http$uri;
+    }
+
+}
+
+@seconi:~/pcap$ bro -C -r  test.pcapng htmlana.bro 
+/api/v3/get?cre=sinapc&mod=picg&statics=1&merge=3&type=1&length=20&cateid=t_s&fields=url,stitle,title,thumb&callback=homePicGuessLoaded__&rnd=1522203298880
+```
