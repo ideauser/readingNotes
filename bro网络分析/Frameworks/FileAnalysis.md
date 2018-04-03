@@ -1,7 +1,7 @@
 [TOC]
 
 ### File Analysis
-
+[源文](https://www.bro.org/sphinx/frameworks/file-analysis.html)
 过去，为了分析文件内容而编写Bro脚本可能很麻烦，因为事实上内容将以不同的方式通过事件呈现在脚本层上，这取决于文件传输中涉及哪种网络协议。 编写用于通过一种协议分析文件的脚本将不得不被复制和修改以适应其他协议。 文件分析框架（FAF）改为提供文件相关信息的一般表示。 有关通过网络传输文件的协议信息仍然可用，但不再需要指定如何组织其脚本逻辑来处理它。 FAF的目标是专门为类似于Bro为网络连接提供的分析的文件提供分析。
 
 #### File Lifecycle Events文件生命周期事件
@@ -154,4 +154,114 @@ event file_sniff(f: fa_file, meta: fa_metadata)
 
 @seconi:~/pcap$ bro -C -r  test.pcapng htmlana.bro 
 /api/v3/get?cre=sinapc&mod=picg&statics=1&merge=3&type=1&length=20&cateid=t_s&fields=url,stitle,title,thumb&callback=homePicGuessLoaded__&rnd=1522203298880
+
+
+```
+
+```
+    1 #!/opt/bro/bin/bro
+      2 redef default_file_bof_buffer_size=500024;#重新定义buffer的大小
+      3 event file_sniff(f: fa_file,meta: fa_metadata)
+      4 {
+      5     if( !meta?$mime_type) return;
+      6     if(meta$mime_type == "text/html" && f$http$host== "xxx.xxx.com" && "敬请原谅"in f$bof_buffer)
+      7         print f$bof_buffer_size,f$http$host,f$http$uri;
+      8 
+      9 }
+
+```
+
+```
+#!/opt/bro/bin/bro
+redef default_file_bof_buffer_size=500024;
+event file_sniff(f: fa_file,meta: fa_metadata)
+{
+	if(f$source !="HTTP") return;
+	if( !meta?$mime_type) return;
+	if(meta$mime_type == "text/html" && f$http?$host && f$http$host== "xxxx.com" && "敬请原谅"in f$bof_buffer)
+		print f$bof_buffer_size,f$http$host,f$http$uri;
+
+}	
+```
+可以记录日志，但是不能实时，有缓冲
+```
+#!/opt/bro/bin/bro
+redef default_file_bof_buffer_size=500024;
+global flog=open("catpurekeywords.log");
+event file_sniff(f: fa_file,meta: fa_metadata)
+{
+	if(f$source !="HTTP") return;
+	if( !meta?$mime_type) return;
+	if(meta$mime_type == "text/html" && f$http?$host && f$http$host== "xxxx.com" && "敬请原谅"in f$bof_buffer)
+		print flog,f$http$host,f$http$uri;
+
+}	
+
+```
+bro是utf8编码的，可以直接识别编码为utf8的汉字(但好像print不了汉字)，如果要识别gbk编码字符串，则需要对字符串仅需gbk编码，然后使用16进制来表示字符串
+比如“东”的gbk编码为：B6AB，则表示为：\xB6\xAB,"莞"为：DDB8，则表示为：\xDD\xB8,那么，"东莞"则表示为：\xB6\xAB\xDD\xB8，如果要对bro抓取编码为gbk的网页关键词“东莞”识别，那么可以这样表达， 
+```
+"\xB6\xAB\xDD\xB8\xBB\xC6\xD3\xC0" in f$bof_buffer   #检测文件中是否含有“东莞”
+
+/\xB6\xAB\xDD\xB8\xBB\xC6\xD3\xC0/ in f$bof_buffer   #这是正则表示
+```
+[这里](https://bianma.supfree.net/)可以查询汉字的gbk编码的16进制表示。
+```
+      1 #!/opt/bro/bin/bro
+      2 redef default_file_bof_buffer_size=500024;
+      3 global flog=open("catpurekeywords.log");
+      4 event file_sniff(f: fa_file,meta: fa_metadata)
+      5 {
+      6     if(f$source !="HTTP") return;
+      7     if( !meta?$mime_type) return;
+      8     if(meta$mime_type == "text/html" && f$http?$host && f$http$host== "xxx.xxx.com" && "\xB6\xAB\xDD\xB8\xBB\xC6\xD3\xC0"in f$bof_buffer)
+      9         print flog,f$http$host,f$http$uri;
+     10 
+     11 }
+
+```
+```
+      1 #!/opt/bro/bin/bro
+      2 redef default_file_bof_buffer_size=500024;
+      3 global flog=open("catpurekeywords.log");
+      4 global keywords :table[string] of string = {["东莞"]="\xB6\xAB\xDD\xB8",
+      5 ["xxx"]="xxxxxxx",
+      6 };
+      7 event file_sniff(f: fa_file,meta: fa_metadata)
+      8 {
+      9     if(f$source !="HTTP") return;
+     10     if( !meta?$mime_type) return;
+     11     if(meta$mime_type == "text/html" && f$http?$host && f$http$host== "xxx.com")
+     12     {
+     13         for(key in keywords)
+     14         {
+     15             if(keywords[key] in f$bof_buffer)
+     16             print key,"in file ",f$http$uri;
+     17         }
+     18     }
+     19 
+     20 }
+```
+改成拼音table,一个关键词应该做两个编码，一个是utf8，一个是gbk
+```
+      1 #!/opt/bro/bin/bro
+      2 redef default_file_bof_buffer_size=500024;
+      3 global flog=open("catpurekeywords.log");
+      4 global keywords :table[string] of string = {["dongguan"]="\xB6\xAB\xDD\xB8",
+      5 ["xxxx"]="xxxxxxx",
+      6 };
+      7 event file_sniff(f: fa_file,meta: fa_metadata)
+      8 {
+      9     if(f$source !="HTTP") return;
+     10     if( !meta?$mime_type) return; #如果没有meta没有mime_type的值，则返回
+     11     if(meta$mime_type == "text/html" && f$http?$host && f$http$host== "xxx.com")
+     12     {
+     13         for(key in keywords)
+     14         {
+     15             if(keywords[key] in f$bof_buffer)
+     16             print fmt("%s in file %s", key,f$http$uri);
+     17         }
+     18     }
+     19 
+     20 }
 ```
